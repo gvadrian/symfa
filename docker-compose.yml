@@ -1,0 +1,200 @@
+version: '3'
+services:
+    nginx:
+        build:
+            context: .
+            dockerfile: docker/nginx/Dockerfile.nginx
+        volumes:
+            - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:delegated
+            - ./docker/nginx/conf.d/default.conf:/etc/nginx/conf.d/default.conf:delegated
+            - ./docker/nginx/ssl:/etc/nginx/ssl:delegated
+            - ./:/var/www/html:delegated
+        ports:
+            - 80:80
+        networks:
+            - sp-net
+
+    php:
+        build:
+            context: .
+            dockerfile: docker/php/Dockerfile.php
+            args:
+                OPCACHE: 0
+        volumes:
+            - ./:/var/www/html:delegated
+            - ./docker/php/config/php.ini:/usr/local/etc/php/php.ini:delegated
+        environment:
+            - DB_TYPE=mysql
+            - DB_HOST=mysql
+            - DB_PORT=3306
+            - DB_DATABASE=aunt226
+            - DB_USERNAME=root
+            - DB_PASSWORD=root
+        networks:
+            - sp-net
+
+    composer:
+        image: composer:2.0.8
+        volumes:
+            - ./:/var/www/html:delegated
+        networks:
+            - sp-net
+#
+#    redis:
+#        image: eqalpha/keydb:x86_64_v6.0.16
+#        volumes:
+#            - redis:/data:delegated
+#        ports:
+#            - 6379:6379
+#        networks:
+#            - sp-net
+
+    mysql:
+        image: percona:8
+        environment:
+            - MYSQL_ROOT_PASSWORD=root
+            - MYSQL_DATABASE=aunt226
+        volumes:
+            - mysql:/var/lib/mysql:delegated
+        ports:
+            - 3306:3306
+        networks:
+            - sp-net
+#
+#    clickhouse:
+#        image: yandex/clickhouse-server:20.9.2.20
+#        ports:
+#            - 9000:9000
+#            - 8123:8123
+#        volumes:
+#            - ./docker/clickhouse/config.xml:/etc/clickhouse-server/config.xml:delegated
+#            - ./docker/clickhouse/users.xml:/etc/clickhouse-server/users.xml:delegated
+#            - ./logs/clickhouse:/var/log/clickhouse-server:delegated
+#            - clickhouse:/var/lib/clickhouse:delegated
+#        networks:
+#            - sp-net
+#
+#    zoo:
+#        image: zookeeper:3.4.9
+#        hostname: zoo1
+#        ports:
+#            - 2181:2181
+#        environment:
+#            ZOO_MY_ID: 1
+#            ZOO_PORT: 2181
+#            ZOO_SERVERS: server.1=zoo:2888:3888
+#        volumes:
+#            - zookeeper:/data:delegated
+#            - zookeeper:/datalog:delegated
+#        networks:
+#            - sp-net
+#
+#    kafka:
+#        image: confluentinc/cp-kafka:5.4.1
+#        hostname: kafka
+#        ports:
+#            - 9092:9092
+#        environment:
+#            KAFKA_ADVERTISED_LISTENERS: LISTENER_DOCKER_INTERNAL://kafka:19092,LISTENER_DOCKER_EXTERNAL://${DOCKER_HOST_IP:-127.0.0.1}:9092
+#            KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: LISTENER_DOCKER_INTERNAL:PLAINTEXT,LISTENER_DOCKER_EXTERNAL:PLAINTEXT
+#            KAFKA_INTER_BROKER_LISTENER_NAME: LISTENER_DOCKER_INTERNAL
+#            KAFKA_ZOOKEEPER_CONNECT: "zoo:2181"
+#            KAFKA_BROKER_ID: 1
+#            KAFKA_LOG4J_LOGGERS: "kafka.controller=INFO,kafka.producer.async.DefaultEventHandler=INFO,state.change.logger=INFO"
+#            KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+#        volumes:
+#            - kafka:/var/lib/kafka/data:delegated
+#        networks:
+#            - sp-net
+
+#    kafka-connect:
+#        image: confluentinc/cp-kafka-connect:5.4.1
+#        hostname: kafka-connect
+#        ports:
+#            - 8083:8083
+#        environment:
+#            CONNECT_BOOTSTRAP_SERVERS: kafka:19092
+#            CONNECT_REST_PORT: 8083
+#            CONNECT_GROUP_ID: connect-dev
+#            CONNECT_CONFIG_STORAGE_TOPIC: kafka-connect.config
+#            CONNECT_OFFSET_STORAGE_TOPIC: kafka-connect.offsets
+#            CONNECT_STATUS_STORAGE_TOPIC: kafka-connect.status
+#            CONNECT_KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+#            CONNECT_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+#            CONNECT_INTERNAL_KEY_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+#            CONNECT_INTERNAL_VALUE_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+#            CONNECT_REST_ADVERTISED_HOST_NAME: "kafka-connect"
+#            CONNECT_LOG4J_ROOT_LOGLEVEL: "INFO"
+#            CONNECT_LOG4J_LOGGERS: "org.apache.kafka.connect.runtime.rest=WARN,org.reflections=ERROR"
+#            CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+#            CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+#            CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+#        networks:
+#            - sp-net
+
+#    kafka-connect-ui:
+#        image: landoop/kafka-connect-ui:latest
+#        hostname: kafka1-connect-ui
+#        ports:
+#            - "8000:8000"
+#        environment:
+#            CONNECT_URL: "http://kafka-connect:8083/"
+#            PROXY: "true"
+#        networks:
+#            - sp-net
+
+#    task-test:
+#        build:
+#            context: .
+#            dockerfile: docker/php/Dockerfile.dev.php
+#        volumes:
+#            - ./:/var/www/html:delegated
+#        command: ["sleep", "60"]
+#        networks:
+#            - sp-net
+
+#    task-enqueue-processors:
+#        build:
+#            context: .
+#            dockerfile: docker/php/Dockerfile.dev.php
+#        volumes:
+#            - ./:/var/www/html:delegated
+#        command: ["./bin/console", "enqueue:consume", "--setup-broker", "-vvv"]
+#        networks:
+#            - sp-net
+#
+#    task-messenger-redis:
+#        build:
+#            context: .
+#            dockerfile: docker/php/Dockerfile.dev.php
+#        volumes:
+#            - ./:/var/www/html:delegated
+#        command: ["./bin/console", "messenger:consume", "redis"]
+#        networks:
+#            - sp-net
+#
+#    task-messenger-kafka:
+#        build:
+#            context: .
+#            dockerfile: docker/php/Dockerfile.dev.php
+#        volumes:
+#            - ./:/var/www/html:delegated
+#        command: ["./bin/console", "messenger:consume", "kafka"]
+#        networks:
+#            - sp-net
+
+networks:
+  sp-net:
+    driver: "bridge"
+
+volumes:
+#    redis:
+#        driver: "local"
+    mysql:
+        driver: "local"
+#    clickhouse:
+#        driver: "local"
+#    zookeeper:
+#        driver: "local"
+#    kafka:
+#        driver: "local"

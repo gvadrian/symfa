@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+
+COMPOSE="docker-compose"
+COMPOSE_TESTS="docker-compose -p test -f docker-compose.test.yml"
+
+# If we pass any arguments...
+if [ $# -gt 0 ];then
+
+    # If "run" is used, pass-thru to "./run"
+    # inside a new container
+    if [ "$1" == "run" ]; then
+        shift 1
+        $COMPOSE run --rm \
+            -w /var/www/html \
+            php "$@"
+
+    # If "composer" is used, pass-thru to "composer"
+    # inside a new container
+    elif [ "$1" == "composer" ]; then
+        shift 1
+        $COMPOSE run --rm -w /var/www/html composer "$@"
+
+    # If "bash" is used, run bash
+    # from our node container
+    elif [ "$1" == "bash" ]; then
+        shift 1
+        $COMPOSE run -w /var/www/html php bash
+
+
+    # If "clean" docker volume clean
+    elif [ "$1" == "clean" ]; then
+        shift 1
+	docker volume rm $(docker volume ls -q) \
+        && docker rmi $(docker images  | grep none | awk '{print $3}') -f \
+	&& docker rm $(docker ps -aq)
+
+    # Else, pass-thru args to docker-compose
+    else
+        $COMPOSE "$@"
+    fi
+
+else
+    $COMPOSE ps
+fi

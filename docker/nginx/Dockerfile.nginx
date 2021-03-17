@@ -1,0 +1,57 @@
+FROM nginx:alpine-perl AS builder
+ARG ARCH="amd64"
+ARG OS="linux"
+LABEL maintainer="Yaroslav Hryshchenko <bash.test.sh@gmail.com>"
+
+ENV VTS_VERSION 0.1.18
+ENV DYNAMIC_UPSTREAM_VERSION 2.3.1
+ENV CACHE_PURGE_VERSION 2.3.1
+
+# Download sources
+RUN wget "http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz" -O nginx.tar.gz && \
+    wget "https://github.com/vozlt/nginx-module-vts/archive/v${VTS_VERSION}.tar.gz" -O vts.tar.gz && \
+    wget "https://github.com/ZigzagAK/ngx_dynamic_upstream/archive/$DYNAMIC_UPSTREAM_VERSION.tar.gz" -O upstream.tar.gz && \
+    wget "https://github.com/torden/ngx_cache_purge/archive/v$CACHE_PURGE_VERSION.tar.gz" -O cache-purge.tar.gz
+
+# For latest build deps, see https://github.com/nginxinc/docker-nginx/blob/master/mainline/alpine/Dockerfile
+RUN apk add --no-cache --virtual .build-deps \
+  gcc \
+  libc-dev \
+  make \
+  openssl-dev \
+  pcre-dev \
+  zlib-dev \
+  linux-headers \
+  curl \
+  gnupg \
+  libxslt-dev \
+  gd-dev \
+  geoip-dev \
+  g++
+
+# Reuse same cli arguments as the nginx:alpine image used to build
+RUN CONFARGS=$(nginx -V 2>&1 | sed -n -e 's/^.*arguments: //p') \
+    mkdir -p /usr/src && \
+	tar -zxC /usr/src -f nginx.tar.gz && \
+  tar -xzvf "vts.tar.gz" && \
+  tar -xzvf "upstream.tar.gz" && \
+  tar -xzvf "cache-purge.tar.gz" && \
+  VTSDIR="$(pwd)/nginx-module-vts-${VTS_VERSION}" && \
+  UPSTREAMDIR="$(pwd)/ngx_dynamic_upstream-${DYNAMIC_UPSTREAM_VERSION}" && \
+  CACHEPURGEDIR="$(pwd)/ngx_cache_purge-${CACHE_PURGE_VERSION}" && \
+  cd /usr/src/nginx-$NGINX_VERSION && \
+  ./configure --with-compat --with-stream $CONFARGS --add-dynamic-module=$VTSDIR --add-dynamic-module=$UPSTREAMDIR --add-dynamic-module=$CACHEPURGEDIR && \
+  make modules
+
+FROM nginx:alpine-perl
+
+RUN adduser -D -G www-data -g '' www-data
+# Copy all modules
+COPY --from=builder /usr/src/nginx-$NGINX_VERSION/objs/*.so /usr/lib/nginx/modules/
+RUN  apk add --no-cache --virtual .build-deps libstdc++
+
+USER www-data
+
+COPY --chown=www-data:www-data . /var/www/html/public
+WORKDIR /var/www/html/
+

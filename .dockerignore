@@ -1,0 +1,10 @@
+charts/*
+docker/*
+undevelop
+.gitlab-ci.yml
+.git
+.gitignore
+README.md
+.gitlab-ci.yml
+docker-compose.yml
+.dockerignore
